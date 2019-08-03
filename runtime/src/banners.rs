@@ -36,6 +36,7 @@ decl_event!(
         Bid(AccountId, Hash, Balance),
         Transferred(AccountId, AccountId, Hash),
         Deal(AccountId, Hash, Balance),
+        Abort(AccountId, Hash),
     }
 );
 
@@ -129,13 +130,13 @@ decl_module! {
 
             ensure!(<Banners<T>>::exists(banner_id), "This banner does not exist");
             let owner = Self::owner_of(banner_id).ok_or("No owner for this banner")?;
-            ensure!(owner != sender, "You can't bid your own banner");
 
             let mut banner = Self::banner(banner_id);
             ensure!(banner.can_bid, "This banner can't be bid");
 
             if banner.bid_end_height > <system::Module<T>>::block_number() {
                 // still can bid this banner
+                ensure!(owner != sender, "You can't bid your own banner");
                 ensure!(bid_price > banner.current_price, "your bid price must be greater than current price");
 
                 <balances::Module<T> as Currency<_>>::transfer(&sender, &banner.current_bidder, banner.current_price)?;
@@ -149,17 +150,23 @@ decl_module! {
                 Self::deposit_event(RawEvent::Bid(sender, banner_id, bid_price));
 
             }else {
-                // already deal
-                let deal_price = banner.current_price;
+                let final_price = banner.current_price;
+                let final_bidder = banner.current_bidder;
+
                 banner.can_bid = false;
                 banner.bid_end_height = <T::BlockNumber as As<u64>>::sa(0);
-                banner.current_bidder = sender.clone();
+                banner.current_bidder = final_bidder.clone();
                 banner.current_price = <T::Balance as As<u64>>::sa(0);
                 <Banners<T>>::insert(banner_id, banner);
-                
-                Self::transfer_from(owner.clone(), sender.clone(), banner_id)?;
 
-                Self::deposit_event(RawEvent::Deal(sender, banner_id, deal_price));
+                if final_bidder.clone() == owner {
+                    // 流拍
+                    Self::deposit_event(RawEvent::Abort(owner.clone(), banner_id));
+                } else {
+                    // 有效成交
+                    Self::transfer_from(owner.clone(), final_bidder.clone(), banner_id)?;
+                    Self::deposit_event(RawEvent::Deal(final_bidder, banner_id, final_price));
+                }
             }
 
             Ok(())
