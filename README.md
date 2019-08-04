@@ -1,6 +1,60 @@
 # best-token
 
-A new SRML-based Substrate node, ready for hacking.
+## 团队名称：BestBlock
+## 项目名称：BestToken
+
+此项目是一个在线广告牌，可以将页面上的多个展示位卖出，功能包括：
+* 创建banner
+* 设定拍卖状态（24*600个块后结束，最终状态：有效成交和流拍需要一笔交易触发）
+* 出价竞拍
+
+公开函数
+* create_banner （创建广告位）
+* set_image_url （广告位所有者修改广告位图片）
+* auction_banner（广告位所有者创建拍卖）
+* bid（竞拍）
+
+数据结构
+
+```rust
+* Banner
+	* id
+	* name
+	* image_url
+	* desc
+	* current_price
+	* current_bidder
+	* can_bid
+	* bid_end_height
+```
+
+模块Storage：
+```rust
+Banners get(banner): map T::Hash => Banner<T::Hash, T::Balance, T::AccountId, T::BlockNumber>;
+BannerOwner get(owner_of): map T::Hash => Option<T::AccountId>;
+
+AllBannersArray get(banner_by_index): map u64 => T::Hash;
+AllBannersCount get(all_banners_count): u64;
+AllBannersIndex: map T::Hash => u64;
+
+OwnedBannersArray get(banner_of_owner_by_index): map (T::AccountId, u64) => T::Hash;
+OwnedBannersCount get(owned_banner_count): map T::AccountId => u64;
+OwnedBannersIndex: map T::Hash => u64;
+```
+
+用map模拟全部banners数组，某地址所有banners数组的实现。
+
+模块Event：
+```rust
+* CreateBanner(AccountId, Hash)
+* StartAuction(AccountId, Hash, Balance)
+* Bid(AccountId, Hash, Balance)
+* Transferred(AccountId, AccountId, Hash)
+* Deal(AccountId, Hash, Balance)
+* Abort(AccountId, Hash)
+```
+
+根据交易类型及上述event类型可以重现某个banner的所有拍卖流程
 
 # Building
 
